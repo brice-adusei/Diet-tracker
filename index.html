@@ -54,7 +54,6 @@
     <h1>Food &amp; Symptom Tracker</h1>
     <p>A simple private log to help notice patterns over time.</p>
   </header>
-
   <section id="home" class="view">
     <div class="card">
       <h2>What would you like to log?</h2>
@@ -72,7 +71,6 @@
     </div>
     <p class="privacy">Entries are stored in this browser on this device. They are only shared if you choose to open an email draft.</p>
   </section>
-
   <section id="food-view" class="view hidden">
     <button class="back" type="button" onclick="show('home')">← Home</button>
     <div class="card">
@@ -102,7 +100,6 @@
       </form>
     </div>
   </section>
-
   <section id="symptom-view" class="view hidden">
     <button class="back" type="button" onclick="show('home')">← Home</button>
     <div class="card">
@@ -115,7 +112,7 @@
           <legend>What are you feeling?</legend>
           <div class="symptom-list" data-checkgroup="symptom-types"></div>
         </fieldset>
-        <label for="severity">How uncomfortable is it? <span id="severity-label" class="hint">(0 = none, 10 = worst)</span></label>
+        <label for="severity">How uncomfortable is it? <span class="hint">(0 = none, 10 = worst)</span></label>
         <div class="inline" style="align-items:center">
           <input id="severity" name="severity" type="range" min="0" max="10" value="0" aria-label="Discomfort from 0 to 10" oninput="document.getElementById('severity-number').textContent=this.value">
           <strong aria-live="polite"><span id="severity-number">0</span> / 10</strong>
@@ -130,7 +127,6 @@
       </form>
     </div>
   </section>
-
   <section id="review-view" class="view hidden">
     <button class="back" type="button" onclick="show(lastFormView)">← Edit entry</button>
     <div class="card">
@@ -144,13 +140,12 @@
   </section>
 </main>
 <script>
-  // Set this to the recipient address before using the email feature.
-  const EMAIL_TO = '';
+  // Recipient address for pre-filled email drafts.
+  const EMAIL_TO = 'brice.adusei@outlook.com';
   const STORAGE_KEY = 'food-symptom-tracker.entries.v1';
   const SYMPTOMS = ['Bloating','Nausea','Stomach pain / cramps','Heartburn / reflux','Diarrhoea','Constipation','Gas','Other'];
   let currentEntry = null;
   let lastFormView = 'home';
-
   function localDateTimeValue(date = new Date()) {
     const offset = date.getTimezoneOffset();
     return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
@@ -163,7 +158,7 @@
   function fillSymptomChoices() {
     document.querySelectorAll('[data-checkgroup]').forEach(container => {
       const name = container.dataset.checkgroup;
-      container.innerHTML = SYMPTOMS.map((symptom, index) => `<label class="choice"><input type="checkbox" name="${name}" value="${escapeHtml(symptom)}"><span>${escapeHtml(symptom)}</span></label>`).join('');
+      container.innerHTML = SYMPTOMS.map(symptom => `<label class="choice"><input type="checkbox" name="${name}" value="${escapeHtml(symptom)}"><span>${escapeHtml(symptom)}</span></label>`).join('');
     });
   }
   function escapeHtml(text) {
@@ -198,17 +193,13 @@
     renderHistory();
   }
   function formatEntry(entry) {
-    const lines = [
-      `Type: ${entry.type === 'food' ? 'FOOD' : 'SYMPTOM'}`,
-      `Time: ${displayDate(entry.time)}`
-    ];
+    const lines = [`Type: ${entry.type === 'food' ? 'FOOD' : 'SYMPTOM'}`, `Time: ${displayDate(entry.time)}`];
     if (entry.type === 'food') {
       lines.push(`Food/drink: ${entry.description}`, `Portion: ${entry.portion}`, `Immediate symptoms: ${entry.symptoms.join(', ') || 'None selected'}`);
     } else {
       lines.push(`Symptoms: ${entry.symptoms.join(', ') || 'Not selected'}`, `Discomfort: ${entry.severity}/10`, `Last ate: ${displayDate(entry.lastEaten)}`, `What was eaten: ${entry.lastFood || 'Not recorded'}`);
     }
     lines.push(`Notes: ${entry.notes || 'None'}`);
-    // Consistent comma-separated row for pasting into a spreadsheet.
     const csv = [entry.type.toUpperCase(), entry.time, entry.type === 'food' ? entry.description : entry.symptoms.join('; '), entry.type === 'food' ? entry.portion : `${entry.severity}/10`, entry.type === 'food' ? entry.symptoms.join('; ') : entry.lastFood, entry.notes || ''].map(csvCell).join(',');
     return `${lines.join('\n')}\n\nCSV: ${csv}`;
   }
@@ -229,10 +220,6 @@
     lastFormView = entry.type === 'food' ? 'food-view' : 'symptom-view';
     saveEntry(entry);
     document.getElementById('review-content').textContent = formatEntry(entry);
-    const button = document.getElementById('email-button');
-    button.textContent = EMAIL_TO ? 'Prepare email' : 'Email address not set';
-    button.disabled = !EMAIL_TO;
-    button.style.opacity = EMAIL_TO ? '1' : '.55';
     show('review-view');
   }
   document.getElementById('food-form').addEventListener('submit', event => {
