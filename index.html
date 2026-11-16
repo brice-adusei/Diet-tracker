@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f7f2">
+  <title>Food & Symptom Tracker</title>
+  <style>
+    :root { color-scheme: light; --ink:#24352f; --muted:#66766f; --green:#245b46; --mint:#e8f2eb; --line:#dce4dd; --paper:#fff; --bg:#f6f7f2; --accent:#c46b48; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(100%,680px); margin:auto; padding:24px 18px calc(36px + env(safe-area-inset-bottom)); }
+    header { margin:8px 0 24px; }
+    h1 { font-size:clamp(28px,7vw,38px); line-height:1.12; margin:0 0 8px; letter-spacing:-.03em; }
+    h2 { font-size:23px; margin:0 0 8px; }
+    p { margin:6px 0 16px; color:var(--muted); }
+    .card { background:var(--paper); border:1px solid var(--line); border-radius:20px; padding:20px; margin:14px 0; box-shadow:0 4px 18px #223a2a08; }
+    .actions { display:grid; gap:12px; }
+    button, .button { font:inherit; font-weight:650; border:0; border-radius:14px; padding:15px 18px; min-height:54px; cursor:pointer; text-align:center; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline:3px solid #d59a70; outline-offset:2px; }
+    .primary { color:white; background:var(--green); width:100%; }
+    .secondary { color:var(--green); background:var(--mint); width:100%; }
+    .quiet { background:transparent; color:var(--green); padding:10px 0; min-height:44px; }
+    .back { border:0; background:none; color:var(--green); padding:8px 0 14px; font-weight:650; cursor:pointer; font-size:16px; }
+    label, legend { display:block; font-weight:650; margin:15px 0 7px; }
+    input[type="text"], input[type="datetime-local"], input[type="time"], textarea, select { width:100%; min-height:52px; border:1px solid #bdcbc1; border-radius:12px; padding:12px; background:white; color:var(--ink); font:inherit; }
+    textarea { min-height:94px; resize:vertical; }
+    fieldset { border:0; padding:0; margin:0; }
+    .choice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .choice { position:relative; }
+    .choice input { position:absolute; opacity:0; pointer-events:none; }
+    .choice span { display:flex; align-items:center; justify-content:center; text-align:center; min-height:48px; border:1px solid #bdcbc1; border-radius:12px; padding:8px; background:white; }
+    .choice input:checked + span { border:2px solid var(--green); background:var(--mint); color:var(--green); font-weight:700; }
+    .choice input:focus-visible + span { outline:3px solid #d59a70; }
+    .inline { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .hint, .privacy { font-size:14px; color:var(--muted); }
+    .symptom-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .symptom-list .choice span { min-height:46px; }
+    .entry { border-top:1px solid var(--line); padding:14px 0; }
+    .entry:first-child { border-top:0; padding-top:0; }
+    .entry-title { font-weight:700; }
+    .entry p { margin:3px 0 0; font-size:15px; }
+    .tag { display:inline-block; background:var(--mint); color:var(--green); border-radius:999px; padding:3px 9px; margin:4px 4px 0 0; font-size:14px; }
+    .review { white-space:pre-wrap; overflow-wrap:anywhere; background:#f7f9f6; padding:14px; border-radius:12px; font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .notice { border-left:4px solid var(--accent); padding:10px 12px; background:#fff7f2; color:#644737; border-radius:4px 10px 10px 4px; font-size:15px; }
+    .hidden { display:none !important; }
+    .small-link { color:var(--green); background:none; border:0; text-decoration:underline; padding:7px 0; min-height:40px; font:inherit; cursor:pointer; }
+    @media(min-width:520px) { .actions.home { grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Food &amp; Symptom Tracker</h1>
+    <p>A simple private log to help notice patterns over time.</p>
+  </header>
+
+  <section id="home" class="view">
+    <div class="card">
+      <h2>What would you like to log?</h2>
+      <p>Times are set to now automatically and can be changed.</p>
+      <div class="actions home">
+        <button class="primary" type="button" onclick="openForm('food')">＋ Log food or drink</button>
+        <button class="secondary" type="button" onclick="openForm('symptom')">＋ Log a symptom</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Recent entries</h2>
+      <div id="history"></div>
+      <p id="empty-history" class="hint">Entries saved on this device will appear here.</p>
+      <button id="clear-history" class="small-link hidden" type="button" onclick="clearHistory()">Clear all entries on this device</button>
+    </div>
+    <p class="privacy">Entries are stored in this browser on this device. They are only shared if you choose to open an email draft.</p>
+  </section>
+
+  <section id="food-view" class="view hidden">
+    <button class="back" type="button" onclick="show('home')">← Home</button>
+    <div class="card">
+      <h2>Food or drink</h2>
+      <form id="food-form">
+        <label for="food-time">When?</label>
+        <input id="food-time" name="time" type="datetime-local" required>
+        <label for="food-description">What did you eat or drink?</label>
+        <textarea id="food-description" name="description" placeholder="For example: toast with butter and tea" required></textarea>
+        <fieldset>
+          <legend>Portion size</legend>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="portion" value="Small" required><span>Small</span></label>
+            <label class="choice"><input type="radio" name="portion" value="Medium"><span>Medium</span></label>
+            <label class="choice"><input type="radio" name="portion" value="Large"><span>Large</span></label>
+            <label class="choice"><input type="radio" name="portion" value="Not sure"><span>Not sure</span></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Any immediate symptoms?</legend>
+          <p class="hint">Choose any that apply, or leave them all unselected.</p>
+          <div class="symptom-list" data-checkgroup="food-symptoms"></div>
+        </fieldset>
+        <label for="food-notes">Optional notes</label>
+        <textarea id="food-notes" name="notes" placeholder="Anything else to remember?"></textarea>
+        <button class="primary" type="submit" style="margin-top:18px">Review &amp; save</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="symptom-view" class="view hidden">
+    <button class="back" type="button" onclick="show('home')">← Home</button>
+    <div class="card">
+      <h2>Symptoms</h2>
+      <p>Choose the symptoms that describe what is happening. You can select more than one.</p>
+      <form id="symptom-form">
+        <label for="symptom-time">When did it start?</label>
+        <input id="symptom-time" name="time" type="datetime-local" required>
+        <fieldset>
+          <legend>What are you feeling?</legend>
+          <div class="symptom-list" data-checkgroup="symptom-types"></div>
+        </fieldset>
+        <label for="severity">How uncomfortable is it? <span id="severity-label" class="hint">(0 = none, 10 = worst)</span></label>
+        <div class="inline" style="align-items:center">
+          <input id="severity" name="severity" type="range" min="0" max="10" value="0" aria-label="Discomfort from 0 to 10" oninput="document.getElementById('severity-number').textContent=this.value">
+          <strong aria-live="polite"><span id="severity-number">0</span> / 10</strong>
+        </div>
+        <label for="last-eaten">When did you last eat?</label>
+        <input id="last-eaten" name="lastEaten" type="datetime-local">
+        <label for="last-food">What was it, roughly?</label>
+        <input id="last-food" name="lastFood" type="text" placeholder="Optional">
+        <label for="symptom-notes">Optional notes</label>
+        <textarea id="symptom-notes" name="notes" placeholder="Describe anything else that may be useful"></textarea>
+        <button class="primary" type="submit" style="margin-top:18px">Review &amp; save</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="review-view" class="view hidden">
+    <button class="back" type="button" onclick="show(lastFormView)">← Edit entry</button>
+    <div class="card">
+      <h2>Review entry</h2>
+      <p>Saved on this device. Check the details before preparing the email.</p>
+      <div id="review-content" class="review"></div>
+      <div class="notice" style="margin:16px 0">Your email app will open with a draft. You must tap Send to email the entry.</div>
+      <button id="email-button" class="primary" type="button" onclick="emailEntry()">Prepare email</button>
+      <button class="secondary" type="button" style="margin-top:10px" onclick="show('home')">Done</button>
+    </div>
+  </section>
+</main>
+<script>
+  // Set this to the recipient address before using the email feature.
+  const EMAIL_TO = '';
+  const STORAGE_KEY = 'food-symptom-tracker.entries.v1';
+  const SYMPTOMS = ['Bloating','Nausea','Stomach pain / cramps','Heartburn / reflux','Diarrhoea','Constipation','Gas','Other'];
+  let currentEntry = null;
+  let lastFormView = 'home';
+
+  function localDateTimeValue(date = new Date()) {
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+  }
+  function displayDate(value) {
+    if (!value) return 'Not recorded';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString([], {dateStyle:'medium', timeStyle:'short'});
+  }
+  function fillSymptomChoices() {
+    document.querySelectorAll('[data-checkgroup]').forEach(container => {
+      const name = container.dataset.checkgroup;
+      container.innerHTML = SYMPTOMS.map((symptom, index) => `<label class="choice"><input type="checkbox" name="${name}" value="${escapeHtml(symptom)}"><span>${escapeHtml(symptom)}</span></label>`).join('');
+    });
+  }
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  }
+  function show(view) {
+    document.querySelectorAll('.view').forEach(section => section.classList.add('hidden'));
+    document.getElementById(view).classList.remove('hidden');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function openForm(type) {
+    const form = document.getElementById(`${type}-form`);
+    form.reset();
+    document.getElementById(`${type}-time`).value = localDateTimeValue();
+    if (type === 'symptom') {
+      document.getElementById('severity-number').textContent = '0';
+      document.getElementById('last-eaten').value = '';
+    }
+    show(`${type}-view`);
+  }
+  function getChecked(form, name) {
+    return [...form.querySelectorAll(`input[name="${name}"]:checked`)].map(input => input.value);
+  }
+  function getEntries() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch { return []; }
+  }
+  function saveEntry(entry) {
+    const entries = getEntries();
+    entries.unshift(entry);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, 300)));
+    renderHistory();
+  }
+  function formatEntry(entry) {
+    const lines = [
+      `Type: ${entry.type === 'food' ? 'FOOD' : 'SYMPTOM'}`,
+      `Time: ${displayDate(entry.time)}`
+    ];
+    if (entry.type === 'food') {
+      lines.push(`Food/drink: ${entry.description}`, `Portion: ${entry.portion}`, `Immediate symptoms: ${entry.symptoms.join(', ') || 'None selected'}`);
+    } else {
+      lines.push(`Symptoms: ${entry.symptoms.join(', ') || 'Not selected'}`, `Discomfort: ${entry.severity}/10`, `Last ate: ${displayDate(entry.lastEaten)}`, `What was eaten: ${entry.lastFood || 'Not recorded'}`);
+    }
+    lines.push(`Notes: ${entry.notes || 'None'}`);
+    // Consistent comma-separated row for pasting into a spreadsheet.
+    const csv = [entry.type.toUpperCase(), entry.time, entry.type === 'food' ? entry.description : entry.symptoms.join('; '), entry.type === 'food' ? entry.portion : `${entry.severity}/10`, entry.type === 'food' ? entry.symptoms.join('; ') : entry.lastFood, entry.notes || ''].map(csvCell).join(',');
+    return `${lines.join('\n')}\n\nCSV: ${csv}`;
+  }
+  function csvCell(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
+  function renderHistory() {
+    const entries = getEntries();
+    const container = document.getElementById('history');
+    document.getElementById('empty-history').classList.toggle('hidden', entries.length > 0);
+    document.getElementById('clear-history').classList.toggle('hidden', entries.length === 0);
+    container.innerHTML = entries.slice(0, 20).map(entry => {
+      const desc = entry.type === 'food' ? entry.description : (entry.symptoms.join(', ') || 'Symptom entry');
+      const detail = entry.type === 'food' ? `Portion: ${entry.portion}` : `Discomfort: ${entry.severity}/10`;
+      return `<article class="entry"><div class="entry-title">${entry.type === 'food' ? 'Food / drink' : 'Symptoms'} · ${escapeHtml(displayDate(entry.time))}</div><p>${escapeHtml(desc)} · ${escapeHtml(detail)}</p></article>`;
+    }).join('');
+  }
+  function prepareReview(entry) {
+    currentEntry = entry;
+    lastFormView = entry.type === 'food' ? 'food-view' : 'symptom-view';
+    saveEntry(entry);
+    document.getElementById('review-content').textContent = formatEntry(entry);
+    const button = document.getElementById('email-button');
+    button.textContent = EMAIL_TO ? 'Prepare email' : 'Email address not set';
+    button.disabled = !EMAIL_TO;
+    button.style.opacity = EMAIL_TO ? '1' : '.55';
+    show('review-view');
+  }
+  document.getElementById('food-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    prepareReview({id:crypto.randomUUID?.() || String(Date.now()), type:'food', time:data.get('time'), description:String(data.get('description')).trim(), portion:data.get('portion'), symptoms:getChecked(form,'food-symptoms'), notes:String(data.get('notes') || '').trim()});
+  });
+  document.getElementById('symptom-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    prepareReview({id:crypto.randomUUID?.() || String(Date.now()), type:'symptom', time:data.get('time'), symptoms:getChecked(form,'symptom-types'), severity:data.get('severity'), lastEaten:data.get('lastEaten'), lastFood:String(data.get('lastFood') || '').trim(), notes:String(data.get('notes') || '').trim()});
+  });
+  function emailEntry() {
+    if (!EMAIL_TO || !currentEntry) return;
+    const tag = currentEntry.type === 'food' ? 'FOOD' : 'SYMPTOM';
+    const subject = `[${tag}] ${currentEntry.time.replace('T',' ')}`;
+    const url = `mailto:${encodeURIComponent(EMAIL_TO)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(formatEntry(currentEntry))}`;
+    window.location.href = url;
+  }
+  function clearHistory() {
+    if (confirm('Delete all tracker entries saved in this browser? This cannot be undone.')) {
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
+    }
+  }
+  fillSymptomChoices();
+  renderHistory();
+</script>
+</body>
+</html>
