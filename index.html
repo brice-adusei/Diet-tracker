@@ -20,10 +20,9 @@
     button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline:3px solid #d59a70; outline-offset:2px; }
     .primary { color:white; background:var(--green); width:100%; }
     .secondary { color:var(--green); background:var(--mint); width:100%; }
-    .quiet { background:transparent; color:var(--green); padding:10px 0; min-height:44px; }
     .back { border:0; background:none; color:var(--green); padding:8px 0 14px; font-weight:650; cursor:pointer; font-size:16px; }
     label, legend { display:block; font-weight:650; margin:15px 0 7px; }
-    input[type="text"], input[type="datetime-local"], input[type="time"], textarea, select { width:100%; min-height:52px; border:1px solid #bdcbc1; border-radius:12px; padding:12px; background:white; color:var(--ink); font:inherit; }
+    input[type="text"], input[type="datetime-local"], textarea { width:100%; min-height:52px; border:1px solid #bdcbc1; border-radius:12px; padding:12px; background:white; color:var(--ink); font:inherit; }
     textarea { min-height:94px; resize:vertical; }
     fieldset { border:0; padding:0; margin:0; }
     .choice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
@@ -32,7 +31,8 @@
     .choice span { display:flex; align-items:center; justify-content:center; text-align:center; min-height:48px; border:1px solid #bdcbc1; border-radius:12px; padding:8px; background:white; }
     .choice input:checked + span { border:2px solid var(--green); background:var(--mint); color:var(--green); font-weight:700; }
     .choice input:focus-visible + span { outline:3px solid #d59a70; }
-    .inline { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .inline { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; }
+    input[type="range"] { width:100%; accent-color:var(--green); min-height:40px; }
     .hint, .privacy { font-size:14px; color:var(--muted); }
     .symptom-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
     .symptom-list .choice span { min-height:46px; }
@@ -40,7 +40,6 @@
     .entry:first-child { border-top:0; padding-top:0; }
     .entry-title { font-weight:700; }
     .entry p { margin:3px 0 0; font-size:15px; }
-    .tag { display:inline-block; background:var(--mint); color:var(--green); border-radius:999px; padding:3px 9px; margin:4px 4px 0 0; font-size:14px; }
     .review { white-space:pre-wrap; overflow-wrap:anywhere; background:#f7f9f6; padding:14px; border-radius:12px; font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; }
     .notice { border-left:4px solid var(--accent); padding:10px 12px; background:#fff7f2; color:#644737; border-radius:4px 10px 10px 4px; font-size:15px; }
     .hidden { display:none !important; }
@@ -67,9 +66,11 @@
       <h2>Recent entries</h2>
       <div id="history"></div>
       <p id="empty-history" class="hint">Entries saved on this device will appear here.</p>
+      <button id="export-button" class="secondary hidden" type="button" onclick="exportEntries()">Export / share all entries (CSV)</button>
       <button id="clear-history" class="small-link hidden" type="button" onclick="clearHistory()">Clear all entries on this device</button>
+      <p class="hint">On supported devices, the share menu may let you attach the CSV to an email. Otherwise, it downloads the file for you to attach.</p>
     </div>
-    <p class="privacy">Entries are stored in this browser on this device. They are only shared if you choose to open an email draft.</p>
+    <p class="privacy">Entries are stored in this browser on this device. They are only shared if you choose to open an email draft or export them.</p>
   </section>
   <section id="food-view" class="view hidden">
     <button class="back" type="button" onclick="show('home')">← Home</button>
@@ -94,6 +95,11 @@
           <p class="hint">Choose any that apply, or leave them all unselected.</p>
           <div class="symptom-list" data-checkgroup="food-symptoms"></div>
         </fieldset>
+        <label for="food-reaction">How strong was the reaction? <span class="hint">(0 = no issue, 10 = strongest)</span></label>
+        <div class="inline">
+          <input id="food-reaction" name="reaction" type="range" min="0" max="10" value="0" aria-label="Reaction strength from 0 to 10" oninput="document.getElementById('food-reaction-number').textContent=this.value">
+          <strong aria-live="polite"><span id="food-reaction-number">0</span> / 10</strong>
+        </div>
         <label for="food-notes">Optional notes</label>
         <textarea id="food-notes" name="notes" placeholder="Anything else to remember?"></textarea>
         <button class="primary" type="submit" style="margin-top:18px">Review &amp; save</button>
@@ -113,7 +119,7 @@
           <div class="symptom-list" data-checkgroup="symptom-types"></div>
         </fieldset>
         <label for="severity">How uncomfortable is it? <span class="hint">(0 = none, 10 = worst)</span></label>
-        <div class="inline" style="align-items:center">
+        <div class="inline">
           <input id="severity" name="severity" type="range" min="0" max="10" value="0" aria-label="Discomfort from 0 to 10" oninput="document.getElementById('severity-number').textContent=this.value">
           <strong aria-live="polite"><span id="severity-number">0</span> / 10</strong>
         </div>
@@ -140,7 +146,6 @@
   </section>
 </main>
 <script>
-  // Recipient address for pre-filled email drafts.
   const EMAIL_TO = 'brice.adusei@outlook.com';
   const STORAGE_KEY = 'food-symptom-tracker.entries.v1';
   const SYMPTOMS = ['Bloating','Nausea','Stomach pain / cramps','Heartburn / reflux','Diarrhoea','Constipation','Gas','Other'];
@@ -173,6 +178,7 @@
     const form = document.getElementById(`${type}-form`);
     form.reset();
     document.getElementById(`${type}-time`).value = localDateTimeValue();
+    if (type === 'food') document.getElementById('food-reaction-number').textContent = '0';
     if (type === 'symptom') {
       document.getElementById('severity-number').textContent = '0';
       document.getElementById('last-eaten').value = '';
@@ -195,23 +201,58 @@
   function formatEntry(entry) {
     const lines = [`Type: ${entry.type === 'food' ? 'FOOD' : 'SYMPTOM'}`, `Time: ${displayDate(entry.time)}`];
     if (entry.type === 'food') {
-      lines.push(`Food/drink: ${entry.description}`, `Portion: ${entry.portion}`, `Immediate symptoms: ${entry.symptoms.join(', ') || 'None selected'}`);
+      lines.push(`Food/drink: ${entry.description}`, `Portion: ${entry.portion}`, `Immediate symptoms: ${entry.symptoms.join(', ') || 'None selected'}`, `Reaction strength: ${entry.reaction}/10`);
     } else {
       lines.push(`Symptoms: ${entry.symptoms.join(', ') || 'Not selected'}`, `Discomfort: ${entry.severity}/10`, `Last ate: ${displayDate(entry.lastEaten)}`, `What was eaten: ${entry.lastFood || 'Not recorded'}`);
     }
     lines.push(`Notes: ${entry.notes || 'None'}`);
-    const csv = [entry.type.toUpperCase(), entry.time, entry.type === 'food' ? entry.description : entry.symptoms.join('; '), entry.type === 'food' ? entry.portion : `${entry.severity}/10`, entry.type === 'food' ? entry.symptoms.join('; ') : entry.lastFood, entry.notes || ''].map(csvCell).join(',');
-    return `${lines.join('\n')}\n\nCSV: ${csv}`;
+    return lines.join('\n');
   }
   function csvCell(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
+  function entriesToCsv(entries) {
+    const header = ['Type','Time','Food or drink','Portion','Symptoms','Reaction/discomfort (0-10)','Last ate','What was eaten','Notes'];
+    const rows = entries.map(entry => [
+      entry.type === 'food' ? 'FOOD' : 'SYMPTOM',
+      entry.time,
+      entry.type === 'food' ? entry.description : '',
+      entry.type === 'food' ? entry.portion : '',
+      (entry.symptoms || []).join('; '),
+      entry.type === 'food' ? entry.reaction : entry.severity,
+      entry.type === 'symptom' ? entry.lastEaten : '',
+      entry.type === 'symptom' ? entry.lastFood : '',
+      entry.notes || ''
+    ]);
+    return [header, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
+  }
+  async function exportEntries() {
+    const entries = getEntries();
+    if (!entries.length) return alert('There are no saved entries to export yet.');
+    const file = new File(['\uFEFF', entriesToCsv(entries)], `food-symptom-tracker-${new Date().toISOString().slice(0,10)}.csv`, {type:'text/csv;charset=utf-8'});
+    if (navigator.canShare && navigator.canShare({files:[file]}) && navigator.share) {
+      try {
+        await navigator.share({files:[file], title:'Food & Symptom Tracker entries'});
+        return;
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+    }
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(file);
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
   function renderHistory() {
     const entries = getEntries();
     const container = document.getElementById('history');
     document.getElementById('empty-history').classList.toggle('hidden', entries.length > 0);
     document.getElementById('clear-history').classList.toggle('hidden', entries.length === 0);
+    document.getElementById('export-button').classList.toggle('hidden', entries.length === 0);
     container.innerHTML = entries.slice(0, 20).map(entry => {
-      const desc = entry.type === 'food' ? entry.description : (entry.symptoms.join(', ') || 'Symptom entry');
-      const detail = entry.type === 'food' ? `Portion: ${entry.portion}` : `Discomfort: ${entry.severity}/10`;
+      const desc = entry.type === 'food' ? entry.description : ((entry.symptoms || []).join(', ') || 'Symptom entry');
+      const detail = entry.type === 'food' ? `Reaction: ${entry.reaction ?? '—'}/10` : `Discomfort: ${entry.severity}/10`;
       return `<article class="entry"><div class="entry-title">${entry.type === 'food' ? 'Food / drink' : 'Symptoms'} · ${escapeHtml(displayDate(entry.time))}</div><p>${escapeHtml(desc)} · ${escapeHtml(detail)}</p></article>`;
     }).join('');
   }
@@ -226,7 +267,7 @@
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    prepareReview({id:crypto.randomUUID?.() || String(Date.now()), type:'food', time:data.get('time'), description:String(data.get('description')).trim(), portion:data.get('portion'), symptoms:getChecked(form,'food-symptoms'), notes:String(data.get('notes') || '').trim()});
+    prepareReview({id:crypto.randomUUID?.() || String(Date.now()), type:'food', time:data.get('time'), description:String(data.get('description')).trim(), portion:data.get('portion'), symptoms:getChecked(form,'food-symptoms'), reaction:data.get('reaction'), notes:String(data.get('notes') || '').trim()});
   });
   document.getElementById('symptom-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -238,8 +279,7 @@
     if (!EMAIL_TO || !currentEntry) return;
     const tag = currentEntry.type === 'food' ? 'FOOD' : 'SYMPTOM';
     const subject = `[${tag}] ${currentEntry.time.replace('T',' ')}`;
-    const url = `mailto:${encodeURIComponent(EMAIL_TO)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(formatEntry(currentEntry))}`;
-    window.location.href = url;
+    window.location.href = `mailto:${encodeURIComponent(EMAIL_TO)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(formatEntry(currentEntry))}`;
   }
   function clearHistory() {
     if (confirm('Delete all tracker entries saved in this browser? This cannot be undone.')) {
